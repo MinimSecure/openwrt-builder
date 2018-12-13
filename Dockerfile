@@ -4,11 +4,13 @@ RUN apt-get update && \
     apt-get install -y subversion g++ zlib1g-dev build-essential git python rsync man-db && \
     apt-get install -y libncurses5-dev gawk gettext unzip file libssl-dev wget zip time
 
+WORKDIR /workdir
+
 RUN useradd -m openwrt
 
-USER openwrt
+RUN chown -R openwrt: /workdir
 
-WORKDIR /workdir
+USER openwrt
 
 RUN git clone --depth=1 --branch=v18.06.1 https://github.com/openwrt/openwrt openwrt
 
