@@ -4,6 +4,8 @@ RUN apt-get update && \
     apt-get install -y subversion g++ zlib1g-dev build-essential git python rsync man-db && \
     apt-get install -y libncurses5-dev gawk gettext unzip file libssl-dev wget zip time
 
+RUN useradd -m openwrt
+
 USER openwrt
 
 WORKDIR /workdir
@@ -21,4 +23,4 @@ RUN cd openwrt && \
     ./scripts/feeds update -a && \
     ./scripts/feeds install -a
 
-RUN make -C /root/builder V=s -j1
+RUN make -C /workdir/builder V=s -j1
