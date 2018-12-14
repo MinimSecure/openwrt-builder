@@ -3,7 +3,8 @@
 Build preconfigured OpenWrt images and binary packages inside a Docker
 container.
 
-[![minimsecure/circleci-openwrt-builder on Docker Hub](https://img.shields.io/docker/build/minimsecure/circleci-openwrt-builder.svg?style=flat-square)](https://hub.docker.com/r/minimsecure/circleci-openwrt-builder)
+[![minimsecure/circleci-openwrt-builder on Docker Hub](https://img.shields.io/docker/build/minimsecure/circleci-openwrt-builder.svg?style=flat-square)]()
+[![CircleCI Build Status](https://img.shields.io/circleci/project/github/MinimSecure/openwrt-builder.svg?style=flat-square)][1]
 
 ## Overview
 
@@ -20,3 +21,5 @@ Architectures:
 - ar71xx (mips_24kc)
 - ipq40xx (armv7l)
 - mvebu-cortexa9 (armv7l)
+
+[1]: https://hub.docker.com/r/minimsecure/circleci-openwrt-builder

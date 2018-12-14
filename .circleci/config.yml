@@ -68,16 +68,19 @@ workflows:
   build-all:
     jobs:
       - build-base:
-          tags:
-            only: /^.*/
+          filters:
+            tags:
+              only: /^.*/
       - build-gl_b1300:
           requires:
             - build-base
-          tags:
-            only: /^.*/
+          filters:
+            tags:
+              only: /^.*/
       - publish-images:
           requires:
             - build-base
             - build-gl_b1300
-          branches:
-            only: master
+          filters:
+            branches:
+              only: master
