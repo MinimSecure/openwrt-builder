@@ -6,7 +6,8 @@ commands:
     parameters:
       target_name:
         description: Target name for the image
-        type: string
+        type: enum
+        enum: ["base", "gl_b1300"]
     steps:
       - checkout
       - attach_workspace:
@@ -14,17 +15,17 @@ commands:
       - run:
           name: Load previously built base image
           command: |
-            if [[ "<< target_name >>" == "base" ]]; then
+            if [[ "<< parameters.target_name >>" == "base" ]]; then
               echo "Building base image, not bothering with trying to load it. Skipping"
-              exit 0
+            else
+              docker image load -i out/base.dockerimg
             fi
-            docker image load -i out/base.dockerimg
       - run:
-          name: Build image for << target_name >>
+          name: Build image for << parameters.target_name >>
           command: |
-            docker image build --file Dockerfile.<< target_name >> --tag minimsecure/circleci-openwrt-builder:<< target_name >> .
+            docker image build --file Dockerfile.<< parameters.target_name >> --tag minimsecure/circleci-openwrt-builder:<< parameters.target_name >> .
             mkdir -p out
-            docker image save -o out/<< target_name >>.dockerimg minimsecure/circleci-openwrt-builder:<< target_name >>
+            docker image save -o out/<< parameters.target_name >>.dockerimg minimsecure/circleci-openwrt-builder:<< parameters.target_name >>
       - store_artifacts:
           path: out
           destination: out
