@@ -1,27 +1,58 @@
 version: 2.1
 
-jobs:
-  build:
-    machine: true
+commands:
+  build_image:
+    description: Build an image using one of the Dockerfiles
+    parameters:
+      name:
+        description: Target name for the image
+        type: string
     steps:
       - checkout
+      - attach_workspace:
+          at: .
       - run:
-          name: Build base image
+          name: Load previously built base image
           command: |
-            docker image build --file Dockerfile.base --tag minimsecure/circleci-openwrt-builder:base .
-            mkdir -p out
-            docker image save -o out/base.dockerimg minimsecure/circleci-openwrt-builder:base
+            if [[ "<< name >>" == "base" ]]; then
+              echo "Building base image, not bothering with trying to load it. Skipping"
+              exit 0
+            fi
+            docker image load -i out/base.dockerimg
       - run:
-          name: Build SDK GL.iNet GL-B1300
+          name: Build image for << name >>
           command: |
-            docker image build --file Dockerfile.gl_b1300 --tag minimsecure/circleci-openwrt-builder:gl_b1300 .
+            docker image build --file Dockerfile.<< name >> --tag minimsecure/circleci-openwrt-builder:<< name >> .
             mkdir -p out
-            docker image save -o out/gl_b1300.dockerimg minimsecure/circleci-openwrt-builder:gl_b1300
+            docker image save -o out/<< name >>.dockerimg minimsecure/circleci-openwrt-builder:<< name >>
       - store_artifacts:
           path: out
           destination: out
+      - persist_to_workspace:
+          root: .
+          paths:
+            - out/*.dockerimg
+
+jobs:
+  build-base:
+    machine: true
+    steps:
+      - build_image:
+          name: base
+  build-gl_b1300:
+    machine: true
+    steps:
+      - build_image:
+          name: gl_b1300
+
+workspaces:
+  version: 2
+  build-all:
+    jobs:
+      - build-base
+      - build-gl_b1300:
+          requires:
+            - build-base
 
 # TODO:
-# - separate jobs for each image + workflow to orchestrate things
-# - use a function instead of repeating everything above
 # - add publish job
