@@ -16,33 +16,79 @@
 # Figure the top level directory
 TOP := $(patsubst %/,%,$(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
 
+# Disable implicit rules
+ifeq ($(filter -r,$(MAKEFLAGS)),)
+  MAKEFLAGS += -r
+endif
+
 PLATFORMS_PATH := $(TOP)/platforms
 BUILD_DIR := build
 BUILD_PATH := $(TOP)/$(BUILD_DIR)
-OPENWRT_PATH := $(TOP)/openwrt
 
-CONFIGS := $(filter-out $(PLATFORMS_PATH)/minim.baseconfig,$(wildcard $(PLATFORMS_PATH)/*.baseconfig))
-ALL_CONFIGS := $(subst baseconfig,config,\
-	$(subst $(PLATFORMS_PATH),$(BUILD_DIR),$(CONFIGS)))
-ALL_PLATFORMS := $(patsubst $(BUILD_DIR)/%.config,%,$(ALL_CONFIGS))
-ALL_TARGETS := $(patsubst %,$(BUILD_DIR)/.%.built,$(ALL_PLATFORMS))
+MODEL ?= gl_b1300
 
-all: build-all
+-include $(PLATFORMS_PATH)/$(MODEL).mk
 
-.PHONY: all clean build-all
+ifeq ($(PLATFORM_NAME),)
+	__err := $(error "expected PLATFORM_NAME to not be empty")
+endif
+
+PLATFORMS := $(patsubst $(PLATFORMS_PATH)/%.mk,%,$(wildcard $(PLATFORMS_PATH)/*.mk))
+
+ALL_PLATFORMS := $(patsubst %,$(BUILD_DIR)/.%.built,$(PLATFORMS))
+ALL_CONFIGS   := $(patsubst %,$(BUILD_DIR)/.%.config,$(PLATFORMS))
+ALL_DOWNLOADS := $(patsubst %,$(BUILD_DIR)/.%.download,$(PLATFORMS))
+ALL_SDKS      := $(patsubst %,$(BUILD_DIR)/.%.sdk,$(PLATFORMS))
+
+ALL_BUILD_TARGETS    := $(patsubst %,%.build,$(PLATFORMS))
+ALL_SDK_TARGETS      := $(patsubst %,%.sdk,$(PLATFORMS))
+ALL_PLATFORM_TARGETS := $(PLATFORMS)
+
+PLATFORM_CHIP_SDK_TARGET := $(BUILD_PATH)/sdk/$(PLATFORM_CHIP)
+PLATFORM_CHIP_SDK_TAR_TARGET := $(PLATFORM_CHIP_SDK_TARGET).tar.xz
+PLATFORM_SDK_TARGET := $(BUILD_PATH)/$(PLATFORM_NAME)/sdk
+
+OPENWRT_PATH := $(PLATFORM_SDK_TARGET)
+
+all: $(MODEL).build
+
+.PHONY: all distclean clean $(ALL_PLATFORM_TARGETS) $(ALL_BUILD_TARGETS) $(ALL_SDK_TARGETS)
 
 clean:
+	rm -rfv $(BUILD_PATH)/out
+	rm -rfv $(patsubst %,$(BUILD_PATH)/%,$(PLATFORMS))
+	rm -rfv $(patsubst %,$(BUILD_PATH)/.%.*,$(PLATFORMS))
+
+distclean:
 	rm -rfv $(BUILD_PATH)
 
-build-all: $(ALL_TARGETS)
-	mkdir -p $(BUILD_PATH)/out
-	cp -fv $(OPENWRT_PATH)/bin/targets/*/*/minim*.bin $(BUILD_PATH)/out
-	cp -fv $(OPENWRT_PATH)/bin/packages/*/minim/unum*.ipk $(BUILD_PATH)/out
-
-$(BUILD_DIR):
+$(BUILD_PATH):
 	mkdir -p $@
 
-$(ALL_CONFIGS): $(BUILD_DIR)/%.config: $(BUILD_DIR)
+$(BUILD_PATH)/sdk: $(BUILD_PATH)
+	mkdir -p $(BUILD_PATH)/sdk
+
+$(BUILD_PATH)/$(MODEL): $(BUILD_PATH)
+	mkdir -p $(BUILD_PATH)/$(MODEL)
+
+$(PLATFORM_CHIP_SDK_TAR_TARGET): $(BUILD_PATH)/sdk
+	wget -O $@ $(PLATFORM_SDK)
+
+$(PLATFORM_CHIP_SDK_TARGET)/Makefile: $(PLATFORM_CHIP_SDK_TAR_TARGET)
+	mkdir -p $(PLATFORM_CHIP_SDK_TARGET)
+	tar -C $(PLATFORM_CHIP_SDK_TARGET) --strip-components=1 -xf $(PLATFORM_CHIP_SDK_TAR_TARGET)
+	cd $(PLATFORM_CHIP_SDK_TARGET) && \
+	cp -f feeds.conf.default feeds.conf && \
+	echo "# Minim open source feed containing Unum agent" >> feeds.conf && \
+	echo "src-git minim https://github.com/MinimSecure/minim-openwrt-feed" >> feeds.conf && \
+	./scripts/feeds update -a && \
+	./scripts/feeds install unum
+
+$(PLATFORM_SDK_TARGET): $(BUILD_PATH)/$(MODEL) $(PLATFORM_CHIP_SDK_TARGET)/Makefile
+	ln -sf $(BUILD_PATH)/sdk/$(PLATFORM_CHIP) $@
+
+$(BUILD_DIR)/%/.config: $(BUILD_PATH) $(BUILD_DIR)/.%.sdk | Makefile $(wildcard $(PLATFORMS_PATH)/%*)
+	mkdir -p $(BUILD_DIR)/$*
 	if [ -e "$(PLATFORMS_PATH)/$*.baseconfig" ]; then \
 		cp -f "$(PLATFORMS_PATH)/$*.baseconfig" $@;   \
 	fi
@@ -53,9 +99,25 @@ $(ALL_CONFIGS): $(BUILD_DIR)/%.config: $(BUILD_DIR)
 	cp -fv $@ $@.pre
 	cp -fv $(OPENWRT_PATH)/.config $@
 
-$(ALL_PLATFORMS): %: $(BUILD_DIR)/.%.built
-
-$(ALL_TARGETS): $(BUILD_DIR)/.%.built: $(BUILD_DIR)/%.config
-	cp -fv $(BUILD_DIR)/$*.config $(OPENWRT_PATH)/.config
-	make -C $(OPENWRT_PATH)
+$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_PATH)/%/sdk
 	touch $@
+
+$(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/%/.config
+	touch $@
+
+$(ALL_DOWNLOADS): $(BUILD_DIR)/.%.download: $(BUILD_DIR)/.%.config
+	make -C $(OPENWRT_PATH) download
+	touch $@
+
+$(ALL_PLATFORMS): $(BUILD_DIR)/.%.built: $(BUILD_DIR)/.%.download
+	make -C $(OPENWRT_PATH) V=s -j1
+	touch $@
+
+$(ALL_PLATFORM_TARGETS): %: %.sdk %.build
+
+$(ALL_BUILD_TARGETS): %.build: $(BUILD_DIR)/.%.built
+	mkdir -p $(BUILD_PATH)/out
+	cp -fv $(OPENWRT_PATH)/bin/targets/*/*/minim*.bin $(BUILD_PATH)/out
+	cp -fv $(OPENWRT_PATH)/bin/packages/*/minim/unum*.ipk $(BUILD_PATH)/out
+
+$(ALL_SDK_TARGETS): %.sdk: $(BUILD_DIR)/.%.sdk
