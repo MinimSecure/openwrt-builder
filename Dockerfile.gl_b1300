@@ -1,7 +1,8 @@
 FROM minimsecure/circleci-openwrt-builder:base
 
+WORKDIR /workdir
 USER openwrt
 
 RUN make -C /workdir/builder gl_b1300.sdk
 
-CMD ["sh","-c","make -C /workdir/builder gl_b1300"]
+CMD make -C /workdir/builder gl_b1300
