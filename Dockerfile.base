@@ -20,9 +20,3 @@ COPY . builder
 RUN useradd -m openwrt
 
 RUN chown -R openwrt: .
-
-USER openwrt
-
-RUN make -C /workdir/builder gl_b1300.sdk
-
-RUN make -C /workdir/builder gl_b1300
