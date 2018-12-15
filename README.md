@@ -4,7 +4,7 @@ Build preconfigured OpenWrt images and binary packages inside a Docker
 container.
 
 [![CircleCI Build Status](https://img.shields.io/circleci/project/github/MinimSecure/openwrt-builder.svg?style=flat-square)][1]
-[![minimsecure/circleci-openwrt-builder on Docker Hub](https://img.shields.io/docker/build/minimsecure/circleci-openwrt-builder.svg?style=flat-square)][2]
+[![minimsecure/circleci-openwrt-builder on Docker Hub](https://img.shields.io/badge/docker%20hub-repo-blue.svg?style=flat-square)][2]
 
 ## Overview
 
