@@ -1,0 +1,8 @@
+FROM minimsecure/circleci-openwrt-builder:base
+
+WORKDIR /workdir
+USER openwrt
+
+RUN make -C /workdir/builder linksys-wrt1900acs.sdk
+
+CMD make -C /workdir/builder linksys-wrt1900acs

@@ -7,7 +7,7 @@ commands:
       target_name:
         description: Target name for the image
         type: enum
-        enum: ["base", "gl_b1300"]
+        enum: ["base", "archer_c7_v2", "archer_c7_v4", "gl_b1300", "gl_ar300m", "linksys-wrt1900acs"]
     steps:
       - checkout
       - attach_workspace:
@@ -40,11 +40,31 @@ jobs:
     steps:
       - build_image:
           target_name: base
+  build-archer_c7_v2:
+    machine: true
+    steps:
+      - build_image:
+          target_name: archer_c7_v2
+  build-archer_c7_v4:
+    machine: true
+    steps:
+      - build_image:
+          target_name: archer_c7_v4
   build-gl_b1300:
     machine: true
     steps:
       - build_image:
           target_name: gl_b1300
+  build-gl_ar300m:
+    machine: true
+    steps:
+      - build_image:
+          target_name: gl_ar300m
+  build-linksys-wrt1900acs:
+    machine: true
+    steps:
+      - build_image:
+          target_name: linksys-wrt1900acs
   publish-images:
     machine: true
     steps:
@@ -61,7 +81,11 @@ jobs:
           command: |
             docker login -u $DOCKER_USER -p $DOCKER_PASS
             docker push "minimsecure/circleci-openwrt-builder:base"
+            docker push "minimsecure/circleci-openwrt-builder:archer_c7_v2"
+            docker push "minimsecure/circleci-openwrt-builder:archer_c7_v4"
             docker push "minimsecure/circleci-openwrt-builder:gl_b1300"
+            docker push "minimsecure/circleci-openwrt-builder:gl_ar300m"
+            docker push "minimsecure/circleci-openwrt-builder:linksys-wrt1900acs"
 
 workflows:
   version: 2
@@ -71,7 +95,31 @@ workflows:
           filters:
             tags:
               only: /^.*/
+      - build-archer_c7_v2:
+          requires:
+            - build-base
+          filters:
+            tags:
+              only: /^.*/
+      - build-archer_c7_v4:
+          requires:
+            - build-base
+          filters:
+            tags:
+              only: /^.*/
       - build-gl_b1300:
+          requires:
+            - build-base
+          filters:
+            tags:
+              only: /^.*/
+      - build-gl_ar300m:
+          requires:
+            - build-base
+          filters:
+            tags:
+              only: /^.*/
+      - build-linksys-wrt1900acs:
           requires:
             - build-base
           filters:
@@ -80,7 +128,11 @@ workflows:
       - publish-images:
           requires:
             - build-base
+            - build-archer_c7_v2
+            - build-archer_c7_v4
             - build-gl_b1300
+            - build-gl_ar300m
+            - build-linksys-wrt1900acs
           filters:
             branches:
               only: master

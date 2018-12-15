@@ -1,0 +1,8 @@
+FROM minimsecure/circleci-openwrt-builder:base
+
+WORKDIR /workdir
+USER openwrt
+
+RUN make -C /workdir/builder gl_ar300m.sdk
+
+CMD make -C /workdir/builder gl_ar300m
