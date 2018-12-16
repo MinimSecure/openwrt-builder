@@ -26,13 +26,18 @@ commands:
             docker image build --file Dockerfile.<< parameters.target_name >> --tag minimsecure/circleci-openwrt-builder:<< parameters.target_name >> .
             mkdir -p out
             docker image save -o out/<< parameters.target_name >>.dockerimg minimsecure/circleci-openwrt-builder:<< parameters.target_name >>
+      - run:
+          name: Publish image to dockerhub
+          command: |
+            if [[ -z "$DOCKER_USER" ]] || [[ -z "$DOCKER_PASS" ]]; then
+              echo "docker credentials unset, skipping upload"
+            else
+              echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+              docker push "minimsecure/circleci-openwrt-builder:<< parameters.target_name >>"
+            fi
       - store_artifacts:
           path: out
           destination: out
-      - persist_to_workspace:
-          root: .
-          paths:
-            - out/<< parameters.target_name >>.dockerimg
 
 jobs:
   build-base:
@@ -40,6 +45,10 @@ jobs:
     steps:
       - build_image:
           target_name: base
+      - persist_to_workspace:
+          root: .
+          paths:
+            - out/base.dockerimg
   build-archer_c7_v2:
     machine: true
     steps:
@@ -65,27 +74,6 @@ jobs:
     steps:
       - build_image:
           target_name: linksys-wrt1900acs
-  publish-images:
-    machine: true
-    steps:
-      - attach_workspace:
-          at: .
-      - run:
-          name: Load newly built images
-          command: |
-            for img in out/*.dockerimg; do
-              docker image load -i $img
-            done
-      - run:
-          name: Publish images to dockerhub
-          command: |
-            docker login -u $DOCKER_USER -p $DOCKER_PASS
-            docker push "minimsecure/circleci-openwrt-builder:base"
-            docker push "minimsecure/circleci-openwrt-builder:archer_c7_v2"
-            docker push "minimsecure/circleci-openwrt-builder:archer_c7_v4"
-            docker push "minimsecure/circleci-openwrt-builder:gl_b1300"
-            docker push "minimsecure/circleci-openwrt-builder:gl_ar300m"
-            docker push "minimsecure/circleci-openwrt-builder:linksys-wrt1900acs"
 
 workflows:
   version: 2
@@ -95,6 +83,8 @@ workflows:
           filters:
             tags:
               only: /^.*/
+            branches:
+              only: master
       - build-archer_c7_v2:
           requires:
             - build-base
@@ -125,14 +115,3 @@ workflows:
           filters:
             tags:
               only: /^.*/
-      - publish-images:
-          requires:
-            - build-base
-            - build-archer_c7_v2
-            - build-archer_c7_v4
-            - build-gl_b1300
-            - build-gl_ar300m
-            - build-linksys-wrt1900acs
-          filters:
-            branches:
-              only: master
