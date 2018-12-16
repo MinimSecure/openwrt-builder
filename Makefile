@@ -94,7 +94,8 @@ $(addsuffix /Makefile,$(ALL_SDK_UNTAR_TARGETS)): $(BUILD_PATH)/sdk/%/Makefile: $
 	ln -sf $(BUILD_SHARE)/build_dir build_dir && \
 	ln -sf $(BUILD_SHARE)/dl dl && \
 	./scripts/feeds update -a && \
-	./scripts/feeds install unum
+	./scripts/feeds install unum && \
+	./staging_dir/host/bin/usign -G -s ./key-build -p ./key-build.pub -c "Local build key"
 
 .SECONDEXPANSION:
 $(ALL_PLATFORM_SDK_TARGETS): $(BUILD_PATH)/%/sdk: $(BUILD_PATH)/% $(BUILD_PATH)/sdk/$$(call platform_sdk_tpl,%)/Makefile
