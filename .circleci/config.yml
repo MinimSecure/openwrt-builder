@@ -7,19 +7,9 @@ commands:
       target_name:
         description: Target name for the image
         type: enum
-        enum: ["base", "archer_c7_v2", "archer_c7_v4", "gl_b1300", "gl_ar300m", "linksys-wrt1900acs"]
+        enum: ["base", "ar71xx", "ipq40xx", "mvebu-cortexa9"]
     steps:
       - checkout
-      - attach_workspace:
-          at: .
-      - run:
-          name: Load previously built base image
-          command: |
-            if [[ "<< parameters.target_name >>" == "base" ]]; then
-              echo "Building base image, not bothering with trying to load it. Skipping"
-            else
-              docker image load -i out/base.dockerimg
-            fi
       - run:
           name: Build image for << parameters.target_name >>
           command: |
@@ -45,35 +35,21 @@ jobs:
     steps:
       - build_image:
           target_name: base
-      - persist_to_workspace:
-          root: .
-          paths:
-            - out/base.dockerimg
-  build-archer_c7_v2:
+  build-ar71xx:
     machine: true
     steps:
       - build_image:
-          target_name: archer_c7_v2
-  build-archer_c7_v4:
+          target_name: ar71xx
+  build-ipq40xx:
     machine: true
     steps:
       - build_image:
-          target_name: archer_c7_v4
-  build-gl_b1300:
+          target_name: ipq40xx
+  build-mvebu-cortexa9:
     machine: true
     steps:
       - build_image:
-          target_name: gl_b1300
-  build-gl_ar300m:
-    machine: true
-    steps:
-      - build_image:
-          target_name: gl_ar300m
-  build-linksys-wrt1900acs:
-    machine: true
-    steps:
-      - build_image:
-          target_name: linksys-wrt1900acs
+          target_name: mvebu-cortexa9
 
 workflows:
   version: 2
@@ -85,31 +61,19 @@ workflows:
               only: /^.*/
             branches:
               only: master
-      - build-archer_c7_v2:
+      - build-ar71xx:
           requires:
             - build-base
           filters:
             tags:
               only: /^.*/
-      - build-archer_c7_v4:
+      - build-ipq40xx:
           requires:
             - build-base
           filters:
             tags:
               only: /^.*/
-      - build-gl_b1300:
-          requires:
-            - build-base
-          filters:
-            tags:
-              only: /^.*/
-      - build-gl_ar300m:
-          requires:
-            - build-base
-          filters:
-            tags:
-              only: /^.*/
-      - build-linksys-wrt1900acs:
+      - build-mvebu-cortexa9:
           requires:
             - build-base
           filters:
