@@ -1,8 +1,13 @@
 FROM minimsecure/circleci-openwrt-builder:base
 
 WORKDIR /workdir
+COPY . builder
+RUN chown -R openwrt: /workdir
+
 USER openwrt
 
 RUN make -C /workdir/builder gl_b1300.sdk
+
+RUN make -C /workdir/builder gl_b1300.toolchain
 
 CMD make -C /workdir/builder gl_b1300
