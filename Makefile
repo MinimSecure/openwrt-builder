@@ -124,7 +124,7 @@ $(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/.%.sdk $(BUILD_PATH)/%
 
 $(ALL_TOOLCHAINS): $(BUILD_DIR)/.%.toolchain: $(BUILD_DIR)/.%.config
 	cp -f $(BUILD_PATH)/$*/.config $(BUILD_PATH)/$*/sdk/.config
-	make -C $(BUILD_PATH)/$*/sdk V=s -j1 toolchain
+	make -C $(BUILD_PATH)/$*/sdk V=s -j1 toolchain/compile
 	touch $@
 
 $(ALL_PLATFORMS): $(BUILD_DIR)/.%.built: $(BUILD_DIR)/.%.toolchain
