@@ -103,7 +103,7 @@ $(BUILD_SHARE): $(BUILD_PATH)
 $(BUILD_DIR)/.cloned: $(BUILD_PATH)/sdk $(DOWNLOAD_PATH)
 	touch $@
 
-$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_DIR)/.cloned
+$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_DIR)/.cloned $(BUILD_PATH)/sdk $(BUILD_SHARE)
 	mkdir -p $(BUILD_PATH)/$*
 	ln -sf $(BUILD_PATH)/sdk $(BUILD_PATH)/$*/sdk
 	touch $@ $^
