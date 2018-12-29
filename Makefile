@@ -100,15 +100,15 @@ $(DOWNLOAD_PATH):
 $(BUILD_SHARE): $(BUILD_PATH)
 	mkdir -p $@/build_dir $@/feeds $@/dl
 
-$(BUILD_DIR)/.cloned: $(BUILD_PATH)/sdk
+$(BUILD_DIR)/.cloned: $(BUILD_PATH)/sdk $(DOWNLOAD_PATH)
 	touch $@
 
-$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_DIR)/.cloned $(DOWNLOAD_PATH)
+$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_DIR)/.cloned
 	mkdir -p $(BUILD_PATH)/$*
 	ln -sf $(BUILD_PATH)/sdk $(BUILD_PATH)/$*/sdk
 	touch $@ $^
 
-$(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/.%.sdk $(BUILD_PATH)/%
+$(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/.cloned $(BUILD_DIR)/.%.sdk $(BUILD_PATH)/%
 	if [ -e "$(PLATFORMS_PATH)/$*.baseconfig" ]; then                     \
 		cp -f "$(PLATFORMS_PATH)/$*.baseconfig" $(BUILD_PATH)/$*/.config; \
 	else                                                                  \
@@ -120,9 +120,9 @@ $(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/.%.sdk $(BUILD_PATH)/%
 	make -C $(BUILD_PATH)/$*/sdk defconfig
 	cp -f $(BUILD_PATH)/$*/.config $(BUILD_PATH)/$*/.config.pre
 	cp -f $(BUILD_PATH)/$*/sdk/.config $(BUILD_PATH)/$*/.config
-	touch $@
+	touch $@ $^
 
-$(ALL_TOOLCHAINS): $(BUILD_DIR)/.%.toolchain: $(BUILD_DIR)/.%.config
+$(ALL_TOOLCHAINS): $(BUILD_DIR)/.%.toolchain: $(BUILD_DIR)/.%.config $(BUILD_DIR)/.%.sdk $(BUILD_DIR)/.cloned
 	cp -f $(BUILD_PATH)/$*/.config $(BUILD_PATH)/$*/sdk/.config
 	make -C $(BUILD_PATH)/$*/sdk V=s -j1 toolchain/compile
 	touch $@
