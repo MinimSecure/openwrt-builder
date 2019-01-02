@@ -1,13 +1,14 @@
 version: 2.1
 
-commands:
-  build_image:
-    description: Build an image using one of the Dockerfiles
+jobs:
+  build-image:
+    description: Build and publish a Docker image for a supported platform
     parameters:
       target_name:
-        description: Target name for the image
+        description: Target architecture
         type: enum
         enum: ["base", "ar71xx", "ipq40xx", "mvebu-cortexa9"]
+    machine: true
     steps:
       - checkout
       - run:
@@ -29,53 +30,84 @@ commands:
           path: out
           destination: out
 
-jobs:
-  build-base:
-    machine: true
+  build-artifacts:
+    description: Builds binary OpenWrt packages using the images hosted on Docker Hub
+    parameters:
+      target_name:
+        description: Target architecture
+        type: enum
+        enum: ["ar71xx", "ipq40xx", "mvebu-cortexa9"]
+    docker:
+      - image: minimsecure/circleci-openwrt-builder:<< parameters.target_name >>
+    working_directory: /workdir/builder
     steps:
-      - build_image:
-          target_name: base
-  build-ar71xx:
-    machine: true
-    steps:
-      - build_image:
-          target_name: ar71xx
-  build-ipq40xx:
-    machine: true
-    steps:
-      - build_image:
-          target_name: ipq40xx
-  build-mvebu-cortexa9:
-    machine: true
-    steps:
-      - build_image:
-          target_name: mvebu-cortexa9
+      - store_artifacts:
+          path: build/out
+          destination: out
 
 workflows:
   version: 2
   build-all:
     jobs:
-      - build-base:
+      # Build and publish the base Docker image for all target platforms.
+      - build-image:
+          name: build-base
+          target_name: base
+          filters:
+            tags:
+              only: /^.*/
+
+      # Build and publish a new Docker image for each target platform
+      - build-image:
+          name: build-ar71xx
+          target_name: ar71xx
+          requires:
+            - build-base
+          filters:
+            tags:
+              only: /^.*/
+      - build-image:
+          name: build-ipq40xx
+          target_name: ipq40xx
+          requires:
+            - build-base
+          filters:
+            tags:
+              only: /^.*/
+      - build-image:
+          name: build-mvebu-cortexa9
+          target_name: mvebu-cortexa9
+          requires:
+            - build-base
+          filters:
+            tags:
+              only: /^.*/
+
+      # Build artifacts jobs that produce binary OpenWrt images and packages
+      - build-artifacts:
+          requires:
+            - build-ar71xx
+          target_name: ar71xx
           filters:
             tags:
               only: /^.*/
             branches:
               only: master
-      - build-ar71xx:
+      - build-artifacts:
           requires:
-            - build-base
+            - build-ipq40xx
+          target_name: ipq40xx
           filters:
             tags:
               only: /^.*/
-      - build-ipq40xx:
+            branches:
+              only: master
+      - build-artifacts:
           requires:
-            - build-base
+            - build-mvebu-cortexa9
+          target_name: mvebu-cortexa9
           filters:
             tags:
               only: /^.*/
-      - build-mvebu-cortexa9:
-          requires:
-            - build-base
-          filters:
-            tags:
-              only: /^.*/
+            branches:
+              only: master
