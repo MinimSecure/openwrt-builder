@@ -39,6 +39,7 @@ jobs:
         enum: ["ar71xx", "ipq40xx", "mvebu-cortexa9"]
     docker:
       - image: minimsecure/circleci-openwrt-builder:<< parameters.target_name >>
+        command:
     working_directory: /workdir/builder
     steps:
       - store_artifacts:
@@ -85,6 +86,7 @@ workflows:
 
       # Build artifacts jobs that produce binary OpenWrt images and packages
       - build-artifacts:
+          name: artifacts-ar71xx
           requires:
             - build-ar71xx
           target_name: ar71xx
@@ -94,6 +96,7 @@ workflows:
             branches:
               only: master
       - build-artifacts:
+          name: artifacts-ipq40xx
           requires:
             - build-ipq40xx
           target_name: ipq40xx
@@ -103,6 +106,7 @@ workflows:
             branches:
               only: master
       - build-artifacts:
+          name: artifacts-mvebu-cortexa9
           requires:
             - build-mvebu-cortexa9
           target_name: mvebu-cortexa9
