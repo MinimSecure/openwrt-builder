@@ -56,7 +56,6 @@ ALL_PLATFORM_SDK_TARGETS := $(patsubst %,$(BUILD_PATH)/%/sdk,$(PLATFORMS))
 ALL_BUILD_DIRS := $(addprefix $(BUILD_PATH)/,$(PLATFORMS))
 ALL_BUILD_DIRS += $(DOWNLOAD_PATH)
 ALL_BUILD_DIRS += $(BUILD_SHARE)/build_dir $(BUILD_SHARE)/feeds
-ALL_BUILD_DIRS += $(BUILD_PATH)
 
 all: $(ALL_PLATFORM_TARGETS)
 
@@ -89,29 +88,32 @@ $(ALL_TOOLCHAIN_TARGETS): %.toolchain: $(BUILD_DIR)/.%.toolchain
 $(ALL_BUILD_DIRS):
 	mkdir -p $@
 
-$(BUILD_PATH)/sdk: $(ALL_BUILD_DIRS)
-	git clone -b v$(OPENWRT_VERSION) --depth=1 https://github.com/openwrt/openwrt $(BUILD_PATH)/sdk
-	cd $(BUILD_PATH)/sdk &&                           \
-		ln -sf $(FILES_PATH)/feeds.conf feeds.conf && \
-		ln -sf $(BUILD_SHARE)/feeds feeds &&          \
-		rm -rf build_dir dl &&                        \
-		ln -sf $(BUILD_SHARE)/build_dir build_dir &&  \
-		ln -sf $(DOWNLOAD_PATH) dl &&                 \
-		./scripts/feeds update -a &&                  \
-		./scripts/feeds install -a
-	touch $@ $^
+$(BUILD_PATH): $(ALL_BUILD_DIRS)
+	touch $@
 
-
-$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_PATH)/sdk
+$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_PATH)
+	if [ ! -d "$(BUILD_PATH)/sdk" ]; then \
+		git clone -b v$(OPENWRT_VERSION) --depth=1 \
+			https://github.com/openwrt/openwrt \
+			$(BUILD_PATH)/sdk; \
+		cd $(BUILD_PATH)/sdk && \
+			ln -sf $(FILES_PATH)/feeds.conf feeds.conf && \
+			ln -sf $(BUILD_SHARE)/feeds feeds && \
+			rm -rf build_dir dl && \
+			ln -sf $(BUILD_SHARE)/build_dir build_dir && \
+			ln -sf $(DOWNLOAD_PATH) dl && \
+			./scripts/feeds update -a \
+			./scripts/feeds install -a; \
+	fi
 	mkdir -p $(BUILD_PATH)/$*
 	ln -sf $(BUILD_PATH)/sdk $(BUILD_PATH)/$*/sdk
 	touch $@ $^
 
 $(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/.%.sdk
-	if [ -e "$(PLATFORMS_PATH)/$*.baseconfig" ]; then                     \
+	if [ -e "$(PLATFORMS_PATH)/$*.baseconfig" ]; then \
 		cp -f "$(PLATFORMS_PATH)/$*.baseconfig" $(BUILD_PATH)/$*/.config; \
-	else                                                                  \
-		rm -f $(BUILD_PATH)/$*/.config;                                   \
+	else \
+		rm -f $(BUILD_PATH)/$*/.config; \
 	fi
 	cat "$(PLATFORMS_PATH)/minim.baseconfig" >> $(BUILD_PATH)/$*/.config
 	cat "$(PLATFORMS_PATH)/$*.diffconfig" >> $(BUILD_PATH)/$*/.config
@@ -128,6 +130,9 @@ $(ALL_TOOLCHAINS): $(BUILD_DIR)/.%.toolchain: $(BUILD_DIR)/.%.config
 	touch $@ $^
 
 $(ALL_PLATFORMS): $(BUILD_DIR)/.%.built: $(BUILD_DIR)/.%.toolchain
+	cd $(BUILD_PATH)/$*/sdk && \
+		./scripts/feeds update -a && \
+		./scripts/feeds install -a
 	cp -f $(BUILD_PATH)/$*/.config $(BUILD_PATH)/$*/sdk/.config
 	make -C $(BUILD_PATH)/$*/sdk V=s
 	touch $@
