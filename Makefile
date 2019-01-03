@@ -89,7 +89,7 @@ $(ALL_TOOLCHAIN_TARGETS): %.toolchain: $(BUILD_DIR)/.%.toolchain
 $(ALL_BUILD_DIRS):
 	mkdir -p $@
 
-$(BUILD_PATH)/sdk: $(BUILD_PATH)
+$(BUILD_PATH)/sdk: $(ALL_BUILD_DIRS)
 	git clone -b v$(OPENWRT_VERSION) --depth=1 https://github.com/openwrt/openwrt $(BUILD_PATH)/sdk
 	cd $(BUILD_PATH)/sdk &&                           \
 		ln -sf $(FILES_PATH)/feeds.conf feeds.conf && \
