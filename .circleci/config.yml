@@ -39,7 +39,7 @@ jobs:
         enum: ["ar71xx", "ipq40xx", "mvebu-cortexa9"]
     docker:
       - image: minimsecure/circleci-openwrt-builder:<< parameters.target_name >>
-        command:
+        command: make -C /workdir/builder << parameters.target_name >>
     working_directory: /workdir/builder
     steps:
       - store_artifacts:

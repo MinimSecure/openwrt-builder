@@ -32,6 +32,7 @@ BUILD_SHARE := $(BUILD_PATH)/share
 
 OPENWRT_VERSION := 18.06.1
 
+CHIPSETS := $(patsubst $(PLATFORMS_PATH)/%.config.seed,%,$(wildcard $(PLATFORMS_PATH)/*.config.seed))
 PLATFORMS := $(patsubst $(PLATFORMS_PATH)/%.mk,%,$(wildcard $(PLATFORMS_PATH)/*.mk))
 
 platform_sdk_tpl = $(PLATFORM_$(1)_CHIP)$(if $(PLATFORM_$(1)_SPEC),-$(PLATFORM_$(1)_SPEC),)
@@ -47,6 +48,7 @@ ALL_BUILD_TARGETS     := $(patsubst %,%.build,$(PLATFORMS))
 ALL_SDK_TARGETS       := $(patsubst %,%.sdk,$(PLATFORMS))
 ALL_TOOLCHAIN_TARGETS := $(patsubst %,%.toolchain,$(PLATFORMS))
 ALL_PLATFORM_TARGETS  := $(PLATFORMS)
+ALL_CHIPSET_TARGETS   := $(CHIPSETS)
 
 # File/directory targets
 ALL_PLATFORM_SDK_TARGETS := $(patsubst %,$(BUILD_PATH)/%/sdk,$(PLATFORMS))
@@ -54,7 +56,7 @@ ALL_BUILD_DIR_TARGETS := $(addprefix $(BUILD_PATH)/,$(PLATFORMS))
 
 all: $(ALL_PLATFORM_TARGETS)
 
-.PHONY: all distclean clean $(ALL_PLATFORM_TARGETS) $(ALL_BUILD_TARGETS) $(ALL_SDK_TARGETS)
+.PHONY: all distclean clean $(ALL_CHIPSET_TARGETS) $(ALL_PLATFORM_TARGETS) $(ALL_BUILD_TARGETS) $(ALL_SDK_TARGETS)
 
 clean:
 	rm -rfv $(BUILD_PATH)/out
@@ -63,6 +65,10 @@ clean:
 
 distclean:
 	rm -rfv $(BUILD_PATH) $(DOWNLOAD_PATH)
+
+
+.SECONDEXPANSION:
+$(ALL_CHIPSET_TARGETS): %: $$(CHIPSET_%_PLATFORMS)
 
 $(ALL_PLATFORM_TARGETS): %: %.sdk %.toolchain %.build
 
@@ -75,12 +81,25 @@ $(ALL_SDK_TARGETS): %.sdk: $(BUILD_DIR)/.%.sdk
 
 $(ALL_TOOLCHAIN_TARGETS): %.toolchain: $(BUILD_DIR)/.%.toolchain
 
+$(ALL_BUILD_DIR_TARGETS): $(BUILD_PATH)
+	mkdir -p $@
+
+
 $(BUILD_PATH):
 	mkdir -p $@
 
+$(DOWNLOAD_PATH):
+	mkdir -p $@
+
+$(BUILD_SHARE): $(BUILD_PATH)
+	mkdir -p $@/build_dir
+
+$(BUILD_DIR)/.cloned: $(BUILD_PATH)/sdk $(DOWNLOAD_PATH)
+	touch $@
+
 $(BUILD_PATH)/sdk: $(BUILD_PATH) $(BUILD_SHARE)
 	mkdir -p $@
-	git clone -b v18.06.1 --depth=1 https://github.com/openwrt/openwrt $(BUILD_PATH)/sdk
+	git clone -b v$(OPENWRT_VERSION) --depth=1 https://github.com/openwrt/openwrt $(BUILD_PATH)/sdk
 	cd $(BUILD_PATH)/sdk &&                           \
 		ln -sf $(FILES_PATH)/feeds.conf feeds.conf && \
 		ln -sf $(BUILD_SHARE)/feeds feeds &&          \
@@ -91,17 +110,6 @@ $(BUILD_PATH)/sdk: $(BUILD_PATH) $(BUILD_SHARE)
 		./scripts/feeds install -a
 	touch $@
 
-$(ALL_BUILD_DIR_TARGETS): $(BUILD_PATH)
-	mkdir -p $@
-
-$(DOWNLOAD_PATH):
-	mkdir -p $@
-
-$(BUILD_SHARE): $(BUILD_PATH)
-	mkdir -p $@/build_dir $@/feeds $@/dl
-
-$(BUILD_DIR)/.cloned: $(BUILD_PATH)/sdk $(DOWNLOAD_PATH)
-	touch $@
 
 $(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_DIR)/.cloned $(BUILD_PATH)/sdk $(BUILD_SHARE)
 	mkdir -p $(BUILD_PATH)/$*
@@ -124,11 +132,11 @@ $(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/.cloned $(BUILD_DIR)/.%.sdk
 
 $(ALL_TOOLCHAINS): $(BUILD_DIR)/.%.toolchain: $(BUILD_DIR)/.%.config $(BUILD_DIR)/.%.sdk $(BUILD_DIR)/.cloned $(BUILD_PATH)/sdk $(BUILD_SHARE)
 	cp -f $(BUILD_PATH)/$*/.config $(BUILD_PATH)/$*/sdk/.config
-	make -C $(BUILD_PATH)/$*/sdk V=s -j1 toolchain/compile
+	make -C $(BUILD_PATH)/$*/sdk V=s toolchain/compile
 	rm -rf $(BUILD_PATH)/$*/sdk/build_dir/toolchain-*/**/*
 	touch $@ $^
 
 $(ALL_PLATFORMS): $(BUILD_DIR)/.%.built: $(BUILD_DIR)/.%.toolchain
 	cp -f $(BUILD_PATH)/$*/.config $(BUILD_PATH)/$*/sdk/.config
-	make -C $(BUILD_PATH)/$*/sdk V=s -j1
+	make -C $(BUILD_PATH)/$*/sdk V=s
 	touch $@
