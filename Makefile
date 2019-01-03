@@ -52,11 +52,15 @@ ALL_CHIPSET_TARGETS   := $(CHIPSETS)
 
 # File/directory targets
 ALL_PLATFORM_SDK_TARGETS := $(patsubst %,$(BUILD_PATH)/%/sdk,$(PLATFORMS))
-ALL_BUILD_DIR_TARGETS := $(addprefix $(BUILD_PATH)/,$(PLATFORMS))
+
+ALL_BUILD_DIRS := $(addprefix $(BUILD_PATH)/,$(PLATFORMS))
+ALL_BUILD_DIRS += $(DOWNLOAD_PATH)
+ALL_BUILD_DIRS += $(BUILD_SHARE)/build_dir $(BUILD_SHARE)/feeds
+ALL_BUILD_DIRS += $(BUILD_PATH)
 
 all: $(ALL_PLATFORM_TARGETS)
 
-.PHONY: all distclean clean $(ALL_CHIPSET_TARGETS) $(ALL_PLATFORM_TARGETS) $(ALL_BUILD_TARGETS) $(ALL_SDK_TARGETS)
+.PHONY: all distclean clean touch $(ALL_CHIPSET_TARGETS) $(ALL_PLATFORM_TARGETS) $(ALL_BUILD_TARGETS) $(ALL_SDK_TARGETS)
 
 clean:
 	rm -rfv $(BUILD_PATH)/out
@@ -81,24 +85,11 @@ $(ALL_SDK_TARGETS): %.sdk: $(BUILD_DIR)/.%.sdk
 
 $(ALL_TOOLCHAIN_TARGETS): %.toolchain: $(BUILD_DIR)/.%.toolchain
 
-$(ALL_BUILD_DIR_TARGETS): $(BUILD_PATH)
+
+$(ALL_BUILD_DIRS):
 	mkdir -p $@
 
-
-$(BUILD_PATH):
-	mkdir -p $@
-
-$(DOWNLOAD_PATH):
-	mkdir -p $@
-
-$(BUILD_SHARE): $(BUILD_PATH)
-	mkdir -p $@/build_dir $@/feeds
-
-$(BUILD_DIR)/.cloned: $(BUILD_PATH)/sdk $(DOWNLOAD_PATH)
-	touch $@
-
-$(BUILD_PATH)/sdk: $(BUILD_PATH) $(BUILD_SHARE)
-	mkdir -p $@
+$(BUILD_PATH)/sdk: $(BUILD_PATH)
 	git clone -b v$(OPENWRT_VERSION) --depth=1 https://github.com/openwrt/openwrt $(BUILD_PATH)/sdk
 	cd $(BUILD_PATH)/sdk &&                           \
 		ln -sf $(FILES_PATH)/feeds.conf feeds.conf && \
@@ -108,15 +99,15 @@ $(BUILD_PATH)/sdk: $(BUILD_PATH) $(BUILD_SHARE)
 		ln -sf $(DOWNLOAD_PATH) dl &&                 \
 		./scripts/feeds update -a &&                  \
 		./scripts/feeds install -a
-	touch $@
+	touch $@ $^
 
 
-$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_DIR)/.cloned $(BUILD_PATH)/sdk $(BUILD_SHARE)
+$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_PATH)/sdk
 	mkdir -p $(BUILD_PATH)/$*
 	ln -sf $(BUILD_PATH)/sdk $(BUILD_PATH)/$*/sdk
 	touch $@ $^
 
-$(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/.cloned $(BUILD_DIR)/.%.sdk $(BUILD_PATH)/%
+$(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/.%.sdk
 	if [ -e "$(PLATFORMS_PATH)/$*.baseconfig" ]; then                     \
 		cp -f "$(PLATFORMS_PATH)/$*.baseconfig" $(BUILD_PATH)/$*/.config; \
 	else                                                                  \
@@ -130,7 +121,7 @@ $(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/.cloned $(BUILD_DIR)/.%.sdk
 	cp -f $(BUILD_PATH)/$*/sdk/.config $(BUILD_PATH)/$*/.config
 	touch $@ $^
 
-$(ALL_TOOLCHAINS): $(BUILD_DIR)/.%.toolchain: $(BUILD_DIR)/.%.config $(BUILD_DIR)/.%.sdk $(BUILD_DIR)/.cloned $(BUILD_PATH)/sdk $(BUILD_SHARE)
+$(ALL_TOOLCHAINS): $(BUILD_DIR)/.%.toolchain: $(BUILD_DIR)/.%.config
 	cp -f $(BUILD_PATH)/$*/.config $(BUILD_PATH)/$*/sdk/.config
 	make -C $(BUILD_PATH)/$*/sdk V=s toolchain/compile
 	rm -rf $(BUILD_PATH)/$*/sdk/build_dir/toolchain-*/**/*
