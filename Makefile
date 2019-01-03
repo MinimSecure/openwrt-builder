@@ -92,7 +92,7 @@ $(DOWNLOAD_PATH):
 	mkdir -p $@
 
 $(BUILD_SHARE): $(BUILD_PATH)
-	mkdir -p $@/build_dir
+	mkdir -p $@/build_dir $@/feeds
 
 $(BUILD_DIR)/.cloned: $(BUILD_PATH)/sdk $(DOWNLOAD_PATH)
 	touch $@
