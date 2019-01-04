@@ -47,8 +47,11 @@ ALL_TOOLCHAINS    := $(patsubst %,$(BUILD_DIR)/.%.toolchain,$(PLATFORMS))
 ALL_BUILD_TARGETS     := $(patsubst %,%.build,$(PLATFORMS))
 ALL_SDK_TARGETS       := $(patsubst %,%.sdk,$(PLATFORMS))
 ALL_TOOLCHAIN_TARGETS := $(patsubst %,%.toolchain,$(PLATFORMS))
+ALL_CLEAN_TARGETS     := $(patsubst %,%.clean,$(PLATFORMS))
 ALL_PLATFORM_TARGETS  := $(PLATFORMS)
 ALL_CHIPSET_TARGETS   := $(CHIPSETS)
+ALL_PHONY_TARGETS     := $(ALL_CHIPSET_TARGETS) $(ALL_PLATFORM_TARGETS) $(ALL_BUILD_TARGETS) \
+                         $(ALL_SDK_TARGETS) $(ALL_TOOLCHAIN_TARGETS) $(ALL_CLEAN_TARGETS)
 
 # File/directory targets
 ALL_PLATFORM_SDK_TARGETS := $(patsubst %,$(BUILD_PATH)/%/sdk,$(PLATFORMS))
@@ -59,7 +62,7 @@ ALL_BUILD_DIRS += $(BUILD_SHARE)/build_dir $(BUILD_SHARE)/feeds
 
 all: $(ALL_PLATFORM_TARGETS)
 
-.PHONY: all distclean clean touch $(ALL_CHIPSET_TARGETS) $(ALL_PLATFORM_TARGETS) $(ALL_BUILD_TARGETS) $(ALL_SDK_TARGETS)
+.PHONY: all distclean clean touch $(ALL_PHONY_TARGERTS)
 
 clean:
 	rm -rfv $(BUILD_PATH)/out
@@ -72,6 +75,10 @@ distclean:
 
 .SECONDEXPANSION:
 $(ALL_CHIPSET_TARGETS): %: $$(CHIPSET_%_PLATFORMS)
+
+$(ALL_CLEAN_TARGETS): %.clean:
+	rm -rfv $(BUILD_PATH)/$*
+	rm -rfv $(BUILD_PATH)/.$*.*
 
 $(ALL_PLATFORM_TARGETS): %: %.sdk %.toolchain %.build
 
@@ -110,6 +117,9 @@ $(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_PATH)
 	touch $@ $^
 
 $(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/.%.sdk
+	cd $(BUILD_PATH)/$*/sdk && \
+		./scripts/feeds update -a && \
+		./scripts/feeds install -a
 	if [ -e "$(PLATFORMS_PATH)/$*.baseconfig" ]; then \
 		cp -f "$(PLATFORMS_PATH)/$*.baseconfig" $(BUILD_PATH)/$*/.config; \
 	else \
@@ -130,9 +140,6 @@ $(ALL_TOOLCHAINS): $(BUILD_DIR)/.%.toolchain: $(BUILD_DIR)/.%.config
 	touch $@ $^
 
 $(ALL_PLATFORMS): $(BUILD_DIR)/.%.built: $(BUILD_DIR)/.%.toolchain
-	cd $(BUILD_PATH)/$*/sdk && \
-		./scripts/feeds update -a && \
-		./scripts/feeds install -a
 	cp -f $(BUILD_PATH)/$*/.config $(BUILD_PATH)/$*/sdk/.config
 	make -C $(BUILD_PATH)/$*/sdk V=s
 	touch $@
