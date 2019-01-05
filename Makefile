@@ -14,55 +14,80 @@
 
 
 # Figure the top level directory
-TOP := $(patsubst %/,%,$(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
+export TOP := $(patsubst %/,%,$(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
 
 # Disable implicit rules
 ifeq ($(filter -r,$(MAKEFLAGS)),)
   MAKEFLAGS += -r
 endif
 
-PLATFORMS_PATH := $(TOP)/platforms
-FILES_PATH := $(TOP)/files
-BUILD_DIR := build
-BUILD_PATH := $(TOP)/$(BUILD_DIR)
-DOWNLOAD_PATH := $(TOP)/dl
-BUILD_SHARE := $(BUILD_PATH)/share
+# Version of OpenWrt to build
+OPENWRT_VERSION := v18.06.1
+OPENWRT_GIT_URL := https://github.com/openwrt/openwrt
+# Revision or version of Minim's OpenWrt feed to use
+MINIM_FEED_VERSION := df504482cab6438abf56318beb93065dbc2905a6
+MINIM_FEED_GIT_URL := https://github.com/MinimSecure/minim-openwrt-feed
 
+# Build directory, relative to $(TOP)
+BUILD_DIR   := build
+# Absolute path to the build directory
+BUILD_PATH  := $(TOP)/$(BUILD_DIR)
+
+# Platform-specific Makefiles and OpenWrt buildroot configs
+PLATFORMS_PATH := $(TOP)/platforms
+
+
+# Each platform-specific .mk file in the platforms/ directory is expected to
+# define specific variables which are used throughout the rest of the build
 -include $(wildcard $(PLATFORMS_PATH)/*.mk)
 
-OPENWRT_VERSION := 18.06.1
 
+# Chipset names are dynamically generated from files in $(PLATFORMS_PATH) that
+# have the filename suffix ".config.seed"
 CHIPSETS := $(patsubst $(PLATFORMS_PATH)/%.config.seed,%,$(wildcard $(PLATFORMS_PATH)/*.config.seed))
+# Platform names are dynamically generated from files in $(PLATFORMS_PATH) that
+# have the filename suffix ".mk"
 PLATFORMS := $(patsubst $(PLATFORMS_PATH)/%.mk,%,$(wildcard $(PLATFORMS_PATH)/*.mk))
 
-platform_sdk_tpl = $(PLATFORM_$(1)_CHIP)$(if $(PLATFORM_$(1)_SPEC),-$(PLATFORM_$(1)_SPEC),)
+# Phony targets generated for each platform
+# Results in, for gl_b1300 (ipq40xx chipset), these targets:
+#   gl_b1300            Build everything for this platform
+#   gl_b1300.clean      Clean build related files for this platform only
+#   gl_b1300.sdk        Check out and prepare an OpenWrt buildroot
+#   gl_b1300.toolchain  Build only the toolchain for the given platform
+ALL_PLATFORM_SDK_TARGETS       := $(patsubst %,%.sdk,$(PLATFORMS))
+ALL_PLATFORM_TOOLCHAIN_TARGETS := $(patsubst %,%.toolchain,$(PLATFORMS))
+ALL_PLATFORM_CLEAN_TARGETS     := $(patsubst %,%.clean,$(PLATFORMS))
+ALL_PLATFORM_BUILD_TARGETS     := $(PLATFORMS)
 
-ALL_PLATFORMS     := $(patsubst %,$(BUILD_DIR)/.%.built,$(PLATFORMS))
-ALL_CONFIGS       := $(patsubst %,$(BUILD_DIR)/.%.config,$(PLATFORMS))
-ALL_SDKS          := $(patsubst %,$(BUILD_DIR)/.%.sdk,$(PLATFORMS))
-ALL_TOOLCHAINS    := $(patsubst %,$(BUILD_DIR)/.%.toolchain,$(PLATFORMS))
+# Phony chipset targets which operate on all platforms for that chipset.
+# Continuing the gl_b1300 example, these targets will also be created:
+#   ipq40xx             Build everything for all platforms using this chipset
+#   ipq40xx.clean		Clean build files for all platforms for this chipset
+#   ipq40xx.toolchain   Build the toolchain for this chipset
+ALL_CHIPSET_TOOLCHAIN_TARGETS := $(patsubst %,%.toolchain,$(CHIPSETS))
+ALL_CHIPSET_CLEAN_TARGETS     := $(patsubst %,%.clean,$(CHIPSETS))
+ALL_CHIPSET_BUILD_TARGETS     := $(CHIPSETS)
 
-# Phony targets for each platform.
-# Results in, for gl_b1300, these targets: gl_b1300 gl_b1300.sdk gl_b1300.build
-ALL_BUILD_TARGETS     := $(patsubst %,%.build,$(PLATFORMS))
-ALL_SDK_TARGETS       := $(patsubst %,%.sdk,$(PLATFORMS))
-ALL_TOOLCHAIN_TARGETS := $(patsubst %,%.toolchain,$(PLATFORMS))
-ALL_CLEAN_TARGETS     := $(patsubst %,%.clean,$(PLATFORMS))
-ALL_PLATFORM_TARGETS  := $(PLATFORMS)
-ALL_CHIPSET_TARGETS   := $(CHIPSETS)
-ALL_PHONY_TARGETS     := $(ALL_CHIPSET_TARGETS) $(ALL_PLATFORM_TARGETS) $(ALL_BUILD_TARGETS) \
-                         $(ALL_SDK_TARGETS) $(ALL_TOOLCHAIN_TARGETS) $(ALL_CLEAN_TARGETS)
+ALL_PLATFORM_TARGETS := $(ALL_PLATFORM_BUILD_TARGETS) \
+                        $(ALL_PLATFORM_SDK_TARGETS) \
+                        $(ALL_PLATFORM_CLEAN_TARGETS) \
+                        $(ALL_PLATFORM_TOOLCHAIN_TARGETS)
+ALL_CHIPSET_TARGETS :=  $(ALL_CHIPSET_BUILD_TARGETS) \
+                        $(ALL_CHIPSET_CLEAN_TARGETS) \
+                        $(ALL_CHIPSET_TOOLCHAIN_TARGETS)
 
-# File/directory targets
-ALL_PLATFORM_SDK_TARGETS := $(patsubst %,$(BUILD_PATH)/%/sdk,$(PLATFORMS))
+# Real (not phony) targets
+ALL_PLATFORMS  := $(patsubst %,$(BUILD_DIR)/.%.built,$(PLATFORMS))
+ALL_CONFIGS    := $(patsubst %,$(BUILD_DIR)/.%.config,$(PLATFORMS))
+ALL_SDKS       := $(patsubst %,$(BUILD_DIR)/.%.sdk,$(PLATFORMS))
+ALL_TOOLCHAINS := $(patsubst %,$(BUILD_DIR)/.%.toolchain,$(PLATFORMS))
 
 ALL_BUILD_DIRS := $(addprefix $(BUILD_PATH)/,$(PLATFORMS))
-ALL_BUILD_DIRS += $(DOWNLOAD_PATH)
-ALL_BUILD_DIRS += $(BUILD_SHARE)/build_dir $(BUILD_SHARE)/feeds
 
-all: $(ALL_PLATFORM_TARGETS)
+all: $(ALL_PLATFORM_BUILD_TARGETS)
 
-.PHONY: all distclean clean touch $(ALL_PHONY_TARGERTS)
+.PHONY: all distclean clean touch $(ALL_CHIPSET_TARGETS) $(ALL_PLATFORM_TARGETS)
 
 clean:
 	rm -rfv $(BUILD_PATH)/out
@@ -70,49 +95,51 @@ clean:
 	rm -rfv $(patsubst %,$(BUILD_PATH)/.%.*,$(PLATFORMS))
 
 distclean:
-	rm -rfv $(BUILD_PATH) $(DOWNLOAD_PATH)
+	rm -rfv $(BUILD_PATH)
 
 
 .SECONDEXPANSION:
-$(ALL_CHIPSET_TARGETS): %: $$(CHIPSET_%_PLATFORMS)
+$(ALL_CHIPSET_CLEAN_TARGETS): %.clean: $$(addsuffix .clean,$$(CHIPSET_%_PLATFORMS))
 
-$(ALL_CLEAN_TARGETS): %.clean:
+$(ALL_CHIPSET_TOOLCHAIN_TARGETS): %.toolchain: $$(addsuffix .toolchain,$$(CHIPSET_%_PLATFORMS))
+
+$(ALL_CHIPSET_BUILD_TARGETS): %: $$(CHIPSET_%_PLATFORMS)
+
+
+$(ALL_PLATFORM_CLEAN_TARGETS): %.clean:
 	rm -rfv $(BUILD_PATH)/$*
 	rm -rfv $(BUILD_PATH)/.$*.*
 
-$(ALL_PLATFORM_TARGETS): %: %.sdk %.toolchain %.build
-
-$(ALL_BUILD_TARGETS): %.build: $(BUILD_DIR)/.%.built
+$(ALL_PLATFORM_BUILD_TARGETS): %: $(BUILD_DIR)/.%.built
 	mkdir -p $(BUILD_PATH)/out
 	cp -fv $(BUILD_PATH)/$*/sdk/bin/targets/*/*/minim*.bin $(BUILD_PATH)/out
 	cp -fv $(BUILD_PATH)/$*/sdk/bin/packages/*/minim/unum*.ipk $(BUILD_PATH)/out
 
-$(ALL_SDK_TARGETS): %.sdk: $(BUILD_DIR)/.%.sdk
+$(ALL_PLATFORM_SDK_TARGETS): %.sdk: $(BUILD_DIR)/.%.sdk
 
-$(ALL_TOOLCHAIN_TARGETS): %.toolchain: $(BUILD_DIR)/.%.toolchain
+$(ALL_PLATFORM_TOOLCHAIN_TARGETS): %.toolchain: $(BUILD_DIR)/.%.toolchain
 
 
-$(ALL_BUILD_DIRS):
+$(BUILD_PATH):
 	mkdir -p $@
 
-$(BUILD_PATH): $(ALL_BUILD_DIRS)
-	touch $@
+$(ALL_BUILD_DIRS): $(BUILD_PATH)
+	mkdir -p $@
+	touch $^
 
-$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_PATH)
-	if [ ! -d "$(BUILD_PATH)/sdk" ]; then \
-		git clone -b v$(OPENWRT_VERSION) --depth=1 \
-			https://github.com/openwrt/openwrt \
-			$(BUILD_PATH)/sdk; \
-		cd $(BUILD_PATH)/sdk && \
-			ln -sf $(FILES_PATH)/feeds.conf feeds.conf && \
-			ln -sf $(BUILD_SHARE)/feeds feeds && \
-			rm -rf build_dir dl && \
-			ln -sf $(BUILD_SHARE)/build_dir build_dir && \
-			ln -sf $(DOWNLOAD_PATH) dl && \
-			./scripts/feeds update -a \
-			./scripts/feeds install -a; \
-	fi
-	mkdir -p $(BUILD_PATH)/$*
+$(BUILD_PATH)/sdk:
+	mkdir -p $(dir $@)
+	git clone -b $(OPENWRT_VERSION) --depth=1 \
+		$(OPENWRT_GIT_URL) \
+		$@; \
+	cd $@ && \
+		cp -f feeds.conf.default feeds.conf && \
+		echo 'src-git minim $(MINIM_FEED_GIT_URL)^$(or $(MINIM_FEED_VERSION),master)' >> feeds.conf && \
+		./scripts/feeds update -a \
+		./scripts/feeds install -a
+	touch $@ $^
+
+$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_PATH)/sdk $(BUILD_PATH)/%
 	ln -sf $(BUILD_PATH)/sdk $(BUILD_PATH)/$*/sdk
 	touch $@ $^
 
