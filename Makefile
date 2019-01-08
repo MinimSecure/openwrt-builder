@@ -24,8 +24,8 @@ endif
 # Version of OpenWrt to build
 OPENWRT_VERSION := v18.06.1
 OPENWRT_GIT_URL := https://github.com/openwrt/openwrt
-# Revision or version of Minim's OpenWrt feed to use
-MINIM_FEED_VERSION := df504482cab6438abf56318beb93065dbc2905a6
+# Revision of Minim's OpenWrt feed to use
+MINIM_FEED_VERSION := 5bcb3b56d90ec0fdf7184503aa4a43c918995368
 MINIM_FEED_GIT_URL := https://github.com/MinimSecure/minim-openwrt-feed
 
 # Build directory, relative to $(TOP)
@@ -130,8 +130,7 @@ $(ALL_BUILD_DIRS): $(BUILD_PATH)
 $(BUILD_PATH)/sdk:
 	mkdir -p $(dir $@)
 	git clone -b $(OPENWRT_VERSION) --depth=1 \
-		$(OPENWRT_GIT_URL) \
-		$@; \
+		$(OPENWRT_GIT_URL) $@
 	cd $@ && \
 		cp -f feeds.conf.default feeds.conf && \
 		echo 'src-git minim $(MINIM_FEED_GIT_URL)^$(or $(MINIM_FEED_VERSION),master)' >> feeds.conf && \
