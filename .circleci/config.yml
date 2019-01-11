@@ -37,6 +37,7 @@ jobs:
         type: string
     docker:
       - image: minimsecure/openwrt-builder:<< parameters.target_name >>
+    working_directory: /builder
     steps:
       - run:
           name: Build firmware and packages for << parameters.target_name >>
