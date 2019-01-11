@@ -130,9 +130,9 @@ $(ALL_PLATFORM_SDK_TARGETS): %.sdk: $(BUILD_DIR)/.%.sdk
 $(ALL_PLATFORM_TOOLCHAIN_TARGETS): %.toolchain: $(BUILD_DIR)/.%.toolchain
 
 $(ALL_PLATFORM_BUILD_TARGETS): %: $(BUILD_DIR)/.%.built
-	mkdir -p $(BUILD_PATH)/out
-	cp -fv $(BUILD_PATH)/$*/sdk/bin/targets/*/*/minim*.bin $(BUILD_PATH)/out
-	cp -fv $(BUILD_PATH)/$*/sdk/bin/packages/*/minim/unum*.ipk $(BUILD_PATH)/out
+	mkdir -p $(OUT_DIR)
+	cp -fv $(BUILD_PATH)/$*/sdk/bin/targets/*/*/minim*.bin $(OUT_DIR)
+	cp -fv $(BUILD_PATH)/$*/sdk/bin/packages/*/minim/unum*.ipk $(OUT_DIR)
 
 
 $(BUILD_DIR):
@@ -155,7 +155,7 @@ $(SDK_DIR):
 
 
 $(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(SDK_DIR) $(BUILD_DIR)/%
-	ln -sf $(SDK_DIR) $(BUILD_DIR)/$*/sdk
+	ln -sf $(TOP)/$(SDK_DIR) $(BUILD_DIR)/$*/sdk
 	touch $@ $^
 
 $(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/.%.sdk
