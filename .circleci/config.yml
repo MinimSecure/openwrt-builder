@@ -6,17 +6,16 @@ jobs:
     parameters:
       target_name:
         description: Target architecture
-        type: enum
-        enum: ["base", "ar71xx", "ipq40xx", "mvebu-cortexa9"]
+        type: string
     machine: true
     steps:
       - checkout
       - run:
           name: Build image for << parameters.target_name >>
           command: |
-            docker image build --file Dockerfile.<< parameters.target_name >> --tag minimsecure/circleci-openwrt-builder:<< parameters.target_name >> .
+            docker image build --build-arg "platform=<< parameters.target_name >>" --tag minimsecure/openwrt-builder:<< parameters.target_name >> .
             mkdir -p out
-            docker image save -o out/<< parameters.target_name >>.dockerimg minimsecure/circleci-openwrt-builder:<< parameters.target_name >>
+            docker image save -o out/<< parameters.target_name >>.dockerimg minimsecure/openwrt-builder:<< parameters.target_name >>
       - run:
           name: Publish image to dockerhub
           command: |
@@ -24,64 +23,48 @@ jobs:
               echo "docker credentials unset, skipping upload"
             else
               echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-              docker push "minimsecure/circleci-openwrt-builder:<< parameters.target_name >>"
+              docker push "minimsecure/openwrt-builder:<< parameters.target_name >>"
             fi
       - store_artifacts:
           path: out
-          destination: out
+          destination: build
 
   build-artifacts:
     description: Builds binary OpenWrt packages using the images hosted on Docker Hub
     parameters:
       target_name:
         description: Target architecture
-        type: enum
-        enum: ["ar71xx", "ipq40xx", "mvebu-cortexa9"]
+        type: string
     docker:
-      - image: minimsecure/circleci-openwrt-builder:<< parameters.target_name >>
-    working_directory: /workdir/builder
+      - image: minimsecure/openwrt-builder:<< parameters.target_name >>
     steps:
       - run:
-          name: Build packages for << parameters.target_name >>
-          command: make -C /workdir/builder << parameters.target_name >>
+          name: Build firmware and packages for << parameters.target_name >>
+          command: make << parameters.target_name >>
       - store_artifacts:
           path: build/out
-          destination: out
+          destination: build
 
 workflows:
   version: 2
   build-all:
     jobs:
-      # Build and publish the base Docker image for all target platforms.
-      - build-image:
-          name: build-base
-          target_name: base
-          filters:
-            tags:
-              only: /^.*/
-
       # Build and publish a new Docker image for each target platform
       - build-image:
           name: build-ar71xx
           target_name: ar71xx
-          requires:
-            - build-base
           filters:
             tags:
               only: /^.*/
       - build-image:
           name: build-ipq40xx
           target_name: ipq40xx
-          requires:
-            - build-base
           filters:
             tags:
               only: /^.*/
       - build-image:
           name: build-mvebu-cortexa9
           target_name: mvebu-cortexa9
-          requires:
-            - build-base
           filters:
             tags:
               only: /^.*/

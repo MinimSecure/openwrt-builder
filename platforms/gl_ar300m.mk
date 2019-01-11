@@ -1,5 +1,0 @@
-PLATFORM_gl_ar300m_NICE_NAME := GL.iNet AR-300M
-PLATFORM_gl_ar300m_NAME := gl_ar300m
-PLATFORM_gl_ar300m_CHIP := ar71xx
-PLATFORM_gl_ar300m_SPEC := generic
-CHIPSET_ar71xx_PLATFORMS += gl_ar300m

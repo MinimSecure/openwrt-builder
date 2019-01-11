@@ -30,16 +30,19 @@ MINIM_FEED_GIT_URL := https://github.com/MinimSecure/minim-openwrt-feed
 
 # Build directory, relative to $(TOP)
 BUILD_DIR   := build
+# Directory containing OpenWrt buildroot, shared by all platforms
+SDK_DIR     := $(BUILD_DIR)/sdk
+# Directory containing built artifacts
+OUT_DIR     := $(BUILD_DIR)/out
+
 # Absolute path to the build directory
 BUILD_PATH  := $(TOP)/$(BUILD_DIR)
-
 # Platform-specific Makefiles and OpenWrt buildroot configs
 PLATFORMS_PATH := $(TOP)/platforms
 
-
-# Each platform-specific .mk file in the platforms/ directory is expected to
-# define specific variables which are used throughout the rest of the build
--include $(wildcard $(PLATFORMS_PATH)/*.mk)
+# A "platform" is a specific device, such as `gl_b1300` (for GL.iNet B1300)
+# A "chipset" is a chipset that some device uses, such as `ipq40xx` (which is
+# the GL.iNet B1300 chipset).
 
 
 # Chipset names are dynamically generated from files in $(PLATFORMS_PATH) that
@@ -47,7 +50,14 @@ PLATFORMS_PATH := $(TOP)/platforms
 CHIPSETS := $(patsubst $(PLATFORMS_PATH)/%.config.seed,%,$(wildcard $(PLATFORMS_PATH)/*.config.seed))
 # Platform names are dynamically generated from files in $(PLATFORMS_PATH) that
 # have the filename suffix ".mk"
-PLATFORMS := $(patsubst $(PLATFORMS_PATH)/%.mk,%,$(wildcard $(PLATFORMS_PATH)/*.mk))
+PLATFORMS := $(patsubst $(PLATFORMS_PATH)/%.diffconfig,%,$(wildcard $(PLATFORMS_PATH)/*.diffconfig))
+
+# Generate new variables for each chipset containing a list of the platforms
+# using that chipset.
+# For example, $(CHIPSET_ipq40xx_PLATFORMS) will contain: gl_b1300
+platform_to_chipset_tpl = $(patsubst %.config.seed,%,$(shell readlink $(PLATFORMS_PATH)/$(1).baseconfig))
+chipset_platforms_tpl = CHIPSET_$(call platform_to_chipset_tpl,$(1))_PLATFORMS += $(1)
+chipset_platforms_eval := $(foreach platform,$(PLATFORMS),$(eval $(call chipset_platforms_tpl,$(platform))))
 
 # Phony targets generated for each platform
 # Results in, for gl_b1300 (ipq40xx chipset), these targets:
@@ -64,17 +74,20 @@ ALL_PLATFORM_BUILD_TARGETS     := $(PLATFORMS)
 # Continuing the gl_b1300 example, these targets will also be created:
 #   ipq40xx             Build everything for all platforms using this chipset
 #   ipq40xx.clean		Clean build files for all platforms for this chipset
+#   ipq40xx.sdk         Check out and prepare an OpenWrt buildroot
 #   ipq40xx.toolchain   Build the toolchain for this chipset
+ALL_CHIPSET_SDK_TARGETS       := $(patsubst %,%.sdk,$(CHIPSETS))
 ALL_CHIPSET_TOOLCHAIN_TARGETS := $(patsubst %,%.toolchain,$(CHIPSETS))
 ALL_CHIPSET_CLEAN_TARGETS     := $(patsubst %,%.clean,$(CHIPSETS))
 ALL_CHIPSET_BUILD_TARGETS     := $(CHIPSETS)
 
 ALL_PLATFORM_TARGETS := $(ALL_PLATFORM_BUILD_TARGETS) \
-                        $(ALL_PLATFORM_SDK_TARGETS) \
                         $(ALL_PLATFORM_CLEAN_TARGETS) \
+                        $(ALL_PLATFORM_SDK_TARGETS) \
                         $(ALL_PLATFORM_TOOLCHAIN_TARGETS)
 ALL_CHIPSET_TARGETS :=  $(ALL_CHIPSET_BUILD_TARGETS) \
                         $(ALL_CHIPSET_CLEAN_TARGETS) \
+                        $(ALL_CHIPSET_SDK_TARGETS) \
                         $(ALL_CHIPSET_TOOLCHAIN_TARGETS)
 
 # Real (not phony) targets
@@ -82,8 +95,8 @@ ALL_PLATFORMS  := $(patsubst %,$(BUILD_DIR)/.%.built,$(PLATFORMS))
 ALL_CONFIGS    := $(patsubst %,$(BUILD_DIR)/.%.config,$(PLATFORMS))
 ALL_SDKS       := $(patsubst %,$(BUILD_DIR)/.%.sdk,$(PLATFORMS))
 ALL_TOOLCHAINS := $(patsubst %,$(BUILD_DIR)/.%.toolchain,$(PLATFORMS))
+ALL_BUILD_DIRS := $(addprefix $(BUILD_DIR)/,$(PLATFORMS))
 
-ALL_BUILD_DIRS := $(addprefix $(BUILD_PATH)/,$(PLATFORMS))
 
 all: $(ALL_PLATFORM_BUILD_TARGETS)
 
@@ -101,6 +114,8 @@ distclean:
 .SECONDEXPANSION:
 $(ALL_CHIPSET_CLEAN_TARGETS): %.clean: $$(addsuffix .clean,$$(CHIPSET_%_PLATFORMS))
 
+$(ALL_CHIPSET_SDK_TARGETS): %.sdk: $$(addsuffix .sdk,$$(CHIPSET_%_PLATFORMS))
+
 $(ALL_CHIPSET_TOOLCHAIN_TARGETS): %.toolchain: $$(addsuffix .toolchain,$$(CHIPSET_%_PLATFORMS))
 
 $(ALL_CHIPSET_BUILD_TARGETS): %: $$(CHIPSET_%_PLATFORMS)
@@ -110,24 +125,24 @@ $(ALL_PLATFORM_CLEAN_TARGETS): %.clean:
 	rm -rfv $(BUILD_PATH)/$*
 	rm -rfv $(BUILD_PATH)/.$*.*
 
+$(ALL_PLATFORM_SDK_TARGETS): %.sdk: $(BUILD_DIR)/.%.sdk
+
+$(ALL_PLATFORM_TOOLCHAIN_TARGETS): %.toolchain: $(BUILD_DIR)/.%.toolchain
+
 $(ALL_PLATFORM_BUILD_TARGETS): %: $(BUILD_DIR)/.%.built
 	mkdir -p $(BUILD_PATH)/out
 	cp -fv $(BUILD_PATH)/$*/sdk/bin/targets/*/*/minim*.bin $(BUILD_PATH)/out
 	cp -fv $(BUILD_PATH)/$*/sdk/bin/packages/*/minim/unum*.ipk $(BUILD_PATH)/out
 
-$(ALL_PLATFORM_SDK_TARGETS): %.sdk: $(BUILD_DIR)/.%.sdk
 
-$(ALL_PLATFORM_TOOLCHAIN_TARGETS): %.toolchain: $(BUILD_DIR)/.%.toolchain
-
-
-$(BUILD_PATH):
+$(BUILD_DIR):
 	mkdir -p $@
 
-$(ALL_BUILD_DIRS): $(BUILD_PATH)
+$(ALL_BUILD_DIRS): $(BUILD_DIR)
 	mkdir -p $@
 	touch $^
 
-$(BUILD_PATH)/sdk:
+$(SDK_DIR):
 	mkdir -p $(dir $@)
 	git clone -b $(OPENWRT_VERSION) --depth=1 \
 		$(OPENWRT_GIT_URL) $@
@@ -138,34 +153,35 @@ $(BUILD_PATH)/sdk:
 		./scripts/feeds install -a
 	touch $@ $^
 
-$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(BUILD_PATH)/sdk $(BUILD_PATH)/%
-	ln -sf $(BUILD_PATH)/sdk $(BUILD_PATH)/$*/sdk
+
+$(ALL_SDKS): $(BUILD_DIR)/.%.sdk: $(SDK_DIR) $(BUILD_DIR)/%
+	ln -sf $(SDK_DIR) $(BUILD_DIR)/$*/sdk
 	touch $@ $^
 
 $(ALL_CONFIGS): $(BUILD_DIR)/.%.config: $(BUILD_DIR)/.%.sdk
-	cd $(BUILD_PATH)/$*/sdk && \
+	cd $(BUILD_DIR)/$*/sdk && \
 		./scripts/feeds update -a && \
 		./scripts/feeds install -a
 	if [ -e "$(PLATFORMS_PATH)/$*.baseconfig" ]; then \
-		cp -f "$(PLATFORMS_PATH)/$*.baseconfig" $(BUILD_PATH)/$*/.config; \
+		cp -f "$(PLATFORMS_PATH)/$*.baseconfig" $(BUILD_DIR)/$*/.config; \
 	else \
-		rm -f $(BUILD_PATH)/$*/.config; \
+		rm -f $(BUILD_DIR)/$*/.config; \
 	fi
-	cat "$(PLATFORMS_PATH)/minim.baseconfig" >> $(BUILD_PATH)/$*/.config
-	cat "$(PLATFORMS_PATH)/$*.diffconfig" >> $(BUILD_PATH)/$*/.config
-	cp -f $(BUILD_PATH)/$*/.config $(BUILD_PATH)/$*/sdk/.config
+	cat "$(PLATFORMS_PATH)/minim.baseconfig" >> $(BUILD_DIR)/$*/.config
+	cat "$(PLATFORMS_PATH)/$*.diffconfig" >> $(BUILD_DIR)/$*/.config
+	cp -f $(BUILD_DIR)/$*/.config $(BUILD_DIR)/$*/sdk/.config
 	make -C $(BUILD_PATH)/$*/sdk defconfig
-	cp -f $(BUILD_PATH)/$*/.config $(BUILD_PATH)/$*/.config.pre
-	cp -f $(BUILD_PATH)/$*/sdk/.config $(BUILD_PATH)/$*/.config
+	cp -f $(BUILD_DIR)/$*/.config $(BUILD_DIR)/$*/.config.pre
+	cp -f $(BUILD_DIR)/$*/sdk/.config $(BUILD_DIR)/$*/.config
 	touch $@ $^
 
 $(ALL_TOOLCHAINS): $(BUILD_DIR)/.%.toolchain: $(BUILD_DIR)/.%.config
-	cp -f $(BUILD_PATH)/$*/.config $(BUILD_PATH)/$*/sdk/.config
+	cp -f $(BUILD_DIR)/$*/.config $(BUILD_DIR)/$*/sdk/.config
 	make -C $(BUILD_PATH)/$*/sdk V=s toolchain/compile
-	rm -rf $(BUILD_PATH)/$*/sdk/build_dir/toolchain-*/**/*
+	rm -rf $(BUILD_DIR)/$*/sdk/build_dir/toolchain-*/**/*
 	touch $@ $^
 
 $(ALL_PLATFORMS): $(BUILD_DIR)/.%.built: $(BUILD_DIR)/.%.toolchain
-	cp -f $(BUILD_PATH)/$*/.config $(BUILD_PATH)/$*/sdk/.config
+	cp -f $(BUILD_DIR)/$*/.config $(BUILD_DIR)/$*/sdk/.config
 	make -C $(BUILD_PATH)/$*/sdk V=s
 	touch $@
