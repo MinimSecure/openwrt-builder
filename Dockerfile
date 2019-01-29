@@ -13,6 +13,8 @@ RUN apt-get update && \
     apt-get install -y libncurses5-dev gawk gettext unzip file libssl-dev wget zip time && \
     apt-get clean
 
+RUN useradd -m openwrt
+
 # The `platform` build-arg is required when building an image using this
 # Dockerfile. It must be one of the supported devices or platforms, as
 # accepted by the Makefile in the working directory of the container.
