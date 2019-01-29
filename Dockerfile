@@ -1,4 +1,4 @@
-FROM minimsecure/circleci-openwrt-builder:base
+FROM minimsecure/openwrt-builder:base
 
 # The `platform` build-arg is required when building an image using this
 # Dockerfile. It must be one of the supported devices or platforms, as
