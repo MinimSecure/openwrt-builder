@@ -4,7 +4,7 @@ Build OpenWrt images and packages using a preconfigured buildroot inside
 Docker containers.
 
 [![CircleCI Build Status](https://img.shields.io/circleci/project/github/MinimSecure/openwrt-builder.svg?style=flat-square)][1]
-[![minimsecure/circleci-openwrt-builder on Docker Hub](https://img.shields.io/badge/docker%20hub-repo-blue.svg?style=flat-square)][2]
+[![minimsecure/openwrt-builder on Docker Hub](https://img.shields.io/badge/docker%20hub-repo-blue.svg?style=flat-square)][2]
 
 ## Overview
 
@@ -72,5 +72,5 @@ For example, `ar71xx` and `archer_c7_v4` as chipset and device, respectively.
 
 
 [1]: https://circleci.com/gh/MinimSecure/unum-sdk
-[2]: https://hub.docker.com/r/minimsecure/circleci-openwrt-builder
+[2]: https://hub.docker.com/r/minimsecure/openwrt-builder
 [3]: https://github.com/MinimSecure/unum-sdk
