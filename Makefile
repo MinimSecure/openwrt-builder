@@ -22,10 +22,10 @@ ifeq ($(filter -r,$(MAKEFLAGS)),)
 endif
 
 # Version of OpenWrt to build
-OPENWRT_VERSION := v18.06.1
+OPENWRT_VERSION := v18.06.2
 OPENWRT_GIT_URL := https://github.com/openwrt/openwrt
 # Revision of Minim's OpenWrt feed to use
-MINIM_FEED_VERSION := e968fee2faf8a0945be55d16e87f5c4016723ada
+MINIM_FEED_VERSION := 9e7572e7e4c4e4fbae468bf9c631db19e22cabb7
 MINIM_FEED_GIT_URL := https://github.com/MinimSecure/minim-openwrt-feed
 
 # Build directory, relative to $(TOP)
