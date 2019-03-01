@@ -25,7 +25,7 @@ endif
 OPENWRT_VERSION := v18.06.2
 OPENWRT_GIT_URL := https://github.com/openwrt/openwrt
 # Revision of Minim's OpenWrt feed to use
-MINIM_FEED_VERSION := 5f34b0df08f5864f9af6e8b35c1e8d1606711173
+MINIM_FEED_VERSION := v2019.2.0
 MINIM_FEED_GIT_URL := https://github.com/MinimSecure/minim-openwrt-feed
 
 # Build directory, relative to $(TOP)
