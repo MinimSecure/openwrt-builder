@@ -131,7 +131,7 @@ $(ALL_PLATFORM_TOOLCHAIN_TARGETS): %.toolchain: $(BUILD_DIR)/.%.toolchain
 
 $(ALL_PLATFORM_BUILD_TARGETS): %: $(BUILD_DIR)/.%.built
 	mkdir -p $(OUT_DIR)
-	cp -fv $(BUILD_PATH)/$*/sdk/bin/targets/*/*/minim*.bin $(OUT_DIR)
+	cp -frv $(BUILD_PATH)/$*/sdk/bin/targets/* $(OUT_DIR)
 	cp -fv $(BUILD_PATH)/$*/sdk/bin/packages/*/minim/unum*.ipk $(OUT_DIR)
 
 
