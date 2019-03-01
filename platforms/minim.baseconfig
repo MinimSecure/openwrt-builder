@@ -39,5 +39,5 @@ CONFIG_VERSION_SUPPORT_URL="https://www.minim.co"
 CONFIG_PACKAGE_gdbserver=m
 # CONFIG_PACKAGE_wpad is not set
 # CONFIG_PACKAGE_wpad-mini is not set
-CONFIG_PACKAGE_wpad-mesh=y
+CONFIG_PACKAGE_wpad-mesh-openssl=y
 
